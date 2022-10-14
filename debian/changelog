@@ -1,0 +1,48 @@
+node-on-finished (2.3.0-1) unstable; urgency=medium
+
+  * Team upload
+  * Use dpkg module for ee-first (do not patch)
+  * Move to git dpm
+  * New upstream release
+  * Bug fix: "please drop transitional package node-finished", thanks to
+    Holger Levsen (Closes: #878776).
+  * Bump compat and policy (no changes)
+  * Bug fix: "mocha 4.0.1-3 causes build hangs in various build-rdeps",
+    thanks to Adrian Bunk (Closes: #887586).
+  * Bug fix: "Quoting fixed in autopkgtest 5.2", thanks to Graham Inggs
+    (Closes: #894948).
+
+ -- Bastien Roucariès <rouca@debian.org>  Wed, 09 May 2018 23:48:43 +0200
+
+node-on-finished (2.1.0-2) unstable; urgency=low
+
+  [ Andrew Kelley ]
+  * Fix install applying to dummy package instead of real package
+  * Bump standards version to 3.9.6
+
+  [ Leo Iannacone ]
+  * Update Upstream-Name, Upstream-Contanct and Source urls
+  * Update Vcs-* ulrs. Move to pkg-javascript/on-finished.
+
+ -- Leo Iannacone <l3on@ubuntu.com>  Tue, 14 Oct 2014 10:24:28 +0200
+
+node-on-finished (2.1.0-1) unstable; urgency=low
+
+  [ Andrew Kelley ]
+  * Simpler autopkgtest
+  * Rename from node-finished to node-on-finished
+  * Update to upstream 2.1.0
+  * Update bundled ee-first to 1.0.5
+  * Add myself to uploaders
+  * Update copyright
+
+  [ Jérémy Lal ]
+  * Update install dir to 'on-finished'
+
+ -- Andrew Kelley <superjoe30@gmail.com>  Fri, 12 Sep 2014 10:11:07 +0200
+
+node-finished (1.2.2-1) unstable; urgency=low
+
+  * Initial release (Closes: #753850)
+
+ -- Leo Iannacone <l3on@ubuntu.com>  Sun, 06 Jul 2014 12:36:59 +0200

@@ -1,0 +1,31 @@
+Source: node-ee-first
+Section: javascript
+Priority: optional
+Maintainer: Debian Javascript Maintainers <pkg-javascript-devel@lists.alioth.debian.org>
+Uploaders: FIX_ME debian author
+Build-Depends:
+ debhelper (>= 9)
+ , dh-buildinfo
+ , nodejs
+Standards-Version: 4.1.1
+Homepage: https://github.com/jonathanong/ee-first
+Vcs-Git: https://anonscm.debian.org/git/pkg-javascript/node-ee-first.git
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-javascript/node-ee-first.git
+
+Package: node-ee-first
+Architecture: all
+Depends:
+ ${misc:Depends}
+ , nodejs
+Description: FIX_ME write the Debian package description
+ Write the short and long descriptions for the Debian package as
+ explained in the Developer's Reference, §6.2.1 – §6.2.3.
+ .
+ You can start with the short upstream package description,
+ “return the first event in a set of ee/event pairs”.
+ .
+ Be aware that most upstream package descriptions are not written to
+ conform with Debian package guidelines. You need to explain the role
+ of this package for a Debian audience.
+ .
+ Node.js is an event-based server-side JavaScript engine.

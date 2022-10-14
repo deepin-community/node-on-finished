@@ -1,0 +1,5 @@
+package.json usr/lib/nodejs/on-finished/
+index.js usr/lib/nodejs/on-finished/
+
+module-ee-first/index.js usr/lib/nodejs/ee-first/
+module-ee-first/package.json usr/lib/nodejs/ee-first/

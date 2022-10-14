@@ -1,0 +1,8 @@
+Tests: require
+Depends: node-on-finished, nodejs (>=6)
+
+Tests: runtestsuite-on-finished
+Depends: node-on-finished, nodejs (>=6), mocha (>= 4), node-should
+
+Tests: runtestsuite-ee-first
+Depends: node-ee-first | node-on-finished, nodejs (>=6), mocha (>= 4), node-should

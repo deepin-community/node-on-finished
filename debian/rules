@@ -1,0 +1,59 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	rm -rf node_modules
+
+node_modules/ee-first:
+	mkdir -p node_modules
+	ln -sf ../module-ee-first $@
+
+override_dh_auto_test: node_modules/ee-first
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS) $(DEB_BUILD_PROFILES)))
+	cd module-ee-first && mocha --exit -R spec
+	mocha --exit -R spec
+else
+	@echo '**********************************************************'
+	@echo 'Skip test suite                                           '
+	@echo '**********************************************************'
+endif
+
+
+define newline =
+
+
+endef
+define space =
+endef
+
+COMPONENTS=$(subst $(newline),$(space),$(shell set -e;cd debian/components && (find . -type d -printf "%f\n" | sed '/^[.]$$/d' )))
+COMPONENTS_FILES_C=$(foreach component,$(COMPONENTS),./debian/components/$(component)/$(1))
+COPYRIGHT_COMPONENTS_FILES=$(call COMPONENTS_FILES,copyright)
+DOCS_COMPONENTS_FILES=$(call COMPONENTS_FILES,docs)
+INSTALL_COMPONENTS_FILES=$(call COMPONENTS_FILES,install)
+MODULES_COMPONENTS=$(foreach component,$(COMPONENTS),$(shell echo $(component) | sed 's/^module[-]//g'))
+
+override_dh_installdocs:
+	set -e; for C in $(MODULES_COMPONENTS); do \
+		mkdir -p debian/node-on-finished/usr/share/doc/node-$$C; \
+		ln -s ../node-on-finished/copyright "debian/node-on-finished/usr/share/doc/node-$$C/copyright";\
+	done
+ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS) $(DEB_BUILD_PROFILES)))
+	dh_installdocs
+	install module-ee-first/README.md debian/node-on-finished/usr/share/doc/node-ee-first
+endif
+
+override_dh_installchangelogs:
+ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS) $(DEB_BUILD_PROFILES)))
+	dh_installchangelogs -k HISTORY.md
+endif
+	set -e ;for C in $(MODULES_COMPONENTS); do \
+		mkdir -p "debian/node-on-finished/usr/share/doc/node-$$C";\
+		ln -s ../node-on-finished/changelog.Debian.gz "debian/node-on-finished/usr/share/doc/node-$$C/changelog.Debian.gz";\
+	done
