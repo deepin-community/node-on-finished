@@ -1,27 +1,25 @@
 Source: node-on-finished
-Section: javascript
-Priority: optional
 Maintainer: Debian Javascript Maintainers <pkg-javascript-devel@lists.alioth.debian.org>
-Uploaders: Leo Iannacone <l3on@ubuntu.com>, Andrew Kelley <superjoe30@gmail.com>
-Build-Depends:
- debhelper (>= 11)
- , dh-buildinfo
- , nodejs (>= 6)
- , mocha (>= 4) <!nocheck>
+Uploaders: Yadd <yadd@debian.org>, Andrew Kelley <superjoe30@gmail.com>
+Section: javascript
+Testsuite: autopkgtest-pkg-nodejs
+Priority: optional
+Build-Depends: debhelper-compat (= 13)
+ , dh-sequence-nodejs
+ , mocha <!nocheck>
  , node-should <!nocheck>
-Standards-Version: 4.1.4
-Homepage: https://github.com/jshttp/on-finished
-Vcs-Git: https://salsa.debian.org/js-team/node-on-finished.git
+Standards-Version: 4.6.0
 Vcs-Browser: https://salsa.debian.org/js-team/node-on-finished
+Vcs-Git: https://salsa.debian.org/js-team/node-on-finished.git
+Homepage: https://github.com/jshttp/on-finished
+Rules-Requires-Root: no
 
 Package: node-on-finished
-Replaces: node-finished (<< 2.1.0~)
-Breaks: node-finished (<< 2.1.0~)
-Provides: node-finished, node-ee-first (= 1.1.1)
 Architecture: all
-Depends:
- ${misc:Depends}
- , nodejs (>= 6)
+Multi-Arch: foreign
+Depends: ${misc:Depends}
+Provides: ${nodejs:Provides}
+ , node-finished
 Description: calls back on request close, finish or error - Node.js module
  This module is useful for cleaning up streams.
  It is used to safely destroy any object and stream used while serving
