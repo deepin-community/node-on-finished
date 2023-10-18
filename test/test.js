@@ -1,8 +1,13 @@
 
 var assert = require('assert')
+var asyncHooks = tryRequire('async_hooks')
 var http = require('http')
 var net = require('net')
 var onFinished = require('..')
+
+var describeAsyncHooks = typeof asyncHooks.AsyncLocalStorage === 'function'
+  ? describe
+  : describe.skip
 
 describe('onFinished(res, listener)', function () {
   it('should invoke listener given an unknown object', function (done) {
@@ -16,31 +21,73 @@ describe('onFinished(res, listener)', function () {
         setTimeout(res.end.bind(res), 0)
       })
 
-      sendget(server)
+      sendGet(server)
     })
 
     it('should include the response object', function (done) {
       var server = http.createServer(function (req, res) {
         onFinished(res, function (err, msg) {
           assert.ok(!err)
-          assert.equal(msg, res)
+          assert.strictEqual(msg, res)
           done()
         })
         setTimeout(res.end.bind(res), 0)
       })
 
-      sendget(server)
+      sendGet(server)
     })
 
-    it('should fire when called after finish', function (done) {
-      var server = http.createServer(function (req, res) {
-        onFinished(res, function () {
-          onFinished(res, done)
+    describe('when called after finish', function () {
+      it('should fire when called after finish', function (done) {
+        var server = http.createServer(function (req, res) {
+          onFinished(res, function () {
+            onFinished(res, done)
+          })
+          setTimeout(res.end.bind(res), 0)
         })
-        setTimeout(res.end.bind(res), 0)
+
+        sendGet(server)
       })
 
-      sendget(server)
+      describeAsyncHooks('when async local storage', function () {
+        it('should presist store in callback', function (done) {
+          var asyncLocalStorage = new asyncHooks.AsyncLocalStorage()
+          var store = { foo: 'bar' }
+
+          var server = http.createServer(function (req, res) {
+            onFinished(res, function () {
+              asyncLocalStorage.run(store, function () {
+                onFinished(res, function () {
+                  assert.strictEqual(asyncLocalStorage.getStore().foo, 'bar')
+                  done()
+                })
+              })
+            })
+            setTimeout(res.end.bind(res), 0)
+          })
+
+          sendGet(server)
+        })
+      })
+    })
+
+    describeAsyncHooks('when async local storage', function () {
+      it('should presist store in callback', function (done) {
+        var asyncLocalStorage = new asyncHooks.AsyncLocalStorage()
+        var store = { foo: 'bar' }
+
+        var server = http.createServer(function (req, res) {
+          asyncLocalStorage.run(store, function () {
+            onFinished(res, function () {
+              assert.strictEqual(asyncLocalStorage.getStore().foo, 'bar')
+              done()
+            })
+          })
+          setTimeout(res.end.bind(res), 0)
+        })
+
+        sendGet(server)
+      })
     })
   })
 
@@ -58,7 +105,7 @@ describe('onFinished(res, listener)', function () {
 
           called = req
 
-          writerequest(socket)
+          writeRequest(socket)
         })
 
         res.end()
@@ -67,7 +114,7 @@ describe('onFinished(res, listener)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this)
+          writeRequest(this)
         })
       })
     })
@@ -82,7 +129,7 @@ describe('onFinished(res, listener)', function () {
 
         onFinished(res, function (err) {
           assert.ifError(err)
-          assert.equal(responses[0], res)
+          assert.strictEqual(responses[0], res)
           responses.shift()
 
           if (responses.length === 0) {
@@ -100,13 +147,13 @@ describe('onFinished(res, listener)', function () {
             return
           }
 
-          assert.equal(responses.length, 2)
+          assert.strictEqual(responses.length, 2)
           responses[0].end('response a')
         })
 
         if (responses.length === 1) {
           // second request
-          writerequest(socket)
+          writeRequest(socket)
         }
 
         req.resume()
@@ -116,7 +163,7 @@ describe('onFinished(res, listener)', function () {
       server.listen(function () {
         var data = ''
         socket = net.connect(this.address().port, function () {
-          writerequest(this)
+          writeRequest(this)
         })
 
         socket.on('data', function (chunk) {
@@ -136,7 +183,7 @@ describe('onFinished(res, listener)', function () {
       var server = http.createServer(function (req, res) {
         onFinished(res, function (err) {
           assert.ok(err)
-          done()
+          server.close(done)
         })
 
         socket.on('error', noop)
@@ -146,7 +193,7 @@ describe('onFinished(res, listener)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this, true)
+          writeRequest(this, true)
         })
       })
     })
@@ -155,8 +202,8 @@ describe('onFinished(res, listener)', function () {
       var server = http.createServer(function (req, res) {
         onFinished(res, function (err, msg) {
           assert.ok(err)
-          assert.equal(msg, res)
-          done()
+          assert.strictEqual(msg, res)
+          server.close(done)
         })
 
         socket.on('error', noop)
@@ -166,7 +213,7 @@ describe('onFinished(res, listener)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this, true)
+          writeRequest(this, true)
         })
       })
     })
@@ -176,7 +223,7 @@ describe('onFinished(res, listener)', function () {
     it('should execute the callback', function (done) {
       var client
       var server = http.createServer(function (req, res) {
-        onFinished(res, done)
+        onFinished(res, close(server, done))
         setTimeout(client.abort.bind(client), 0)
       })
       server.listen(function () {
@@ -197,7 +244,7 @@ describe('onFinished(res, listener)', function () {
         })
 
         onFinished(res, done)
-        assert.equal(stderr, '')
+        assert.strictEqual(stderr, '')
         res.end()
       })
 
@@ -205,7 +252,7 @@ describe('onFinished(res, listener)', function () {
         var port = this.address().port
         http.get('http://127.0.0.1:' + port, function (res) {
           res.resume()
-          res.on('close', server.close.bind(server))
+          res.on('end', server.close.bind(server))
         })
       })
     })
@@ -224,7 +271,7 @@ describe('isFinished(res)', function () {
       done()
     })
 
-    sendget(server)
+    sendGet(server)
   })
 
   it('should be true after response finishes', function (done) {
@@ -238,7 +285,7 @@ describe('isFinished(res)', function () {
       res.end()
     })
 
-    sendget(server)
+    sendGet(server)
   })
 
   describe('when requests pipelined', function () {
@@ -266,7 +313,7 @@ describe('isFinished(res)', function () {
 
         if (responses.length === 1) {
           // second request
-          writerequest(socket)
+          writeRequest(socket)
         }
 
         req.resume()
@@ -275,7 +322,7 @@ describe('isFinished(res)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this)
+          writeRequest(this)
         })
       })
     })
@@ -304,14 +351,14 @@ describe('isFinished(res)', function () {
 
         if (requests === 1) {
           // second request
-          writerequest(socket, true)
+          writeRequest(socket, true)
         }
       })
       var socket
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this)
+          writeRequest(this)
         })
       })
     })
@@ -323,7 +370,7 @@ describe('isFinished(res)', function () {
         onFinished(res, function (err) {
           assert.ok(err)
           assert.ok(onFinished.isFinished(res))
-          done()
+          server.close(done)
         })
 
         socket.on('error', noop)
@@ -333,7 +380,7 @@ describe('isFinished(res)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this, true)
+          writeRequest(this, true)
         })
       })
     })
@@ -346,7 +393,7 @@ describe('isFinished(res)', function () {
         onFinished(res, function (err) {
           assert.ifError(err)
           assert.ok(onFinished.isFinished(res))
-          done()
+          server.close(done)
         })
         setTimeout(client.abort.bind(client), 0)
       })
@@ -368,33 +415,77 @@ describe('onFinished(req, listener)', function () {
         setTimeout(res.end.bind(res), 0)
       })
 
-      sendget(server)
+      sendGet(server)
     })
 
     it('should include the request object', function (done) {
       var server = http.createServer(function (req, res) {
         onFinished(req, function (err, msg) {
           assert.ok(!err)
-          assert.equal(msg, req)
+          assert.strictEqual(msg, req)
           done()
         })
         req.resume()
         setTimeout(res.end.bind(res), 0)
       })
 
-      sendget(server)
+      sendGet(server)
     })
 
-    it('should fire when called after finish', function (done) {
-      var server = http.createServer(function (req, res) {
-        onFinished(req, function () {
-          onFinished(req, done)
+    describe('when called after finish', function () {
+      it('should fire when called after finish', function (done) {
+        var server = http.createServer(function (req, res) {
+          onFinished(req, function () {
+            onFinished(req, done)
+          })
+          req.resume()
+          setTimeout(res.end.bind(res), 0)
         })
-        req.resume()
-        setTimeout(res.end.bind(res), 0)
+
+        sendGet(server)
       })
 
-      sendget(server)
+      describeAsyncHooks('when async local storage', function () {
+        it('should presist store in callback', function (done) {
+          var asyncLocalStorage = new asyncHooks.AsyncLocalStorage()
+          var store = { foo: 'bar' }
+
+          var server = http.createServer(function (req, res) {
+            onFinished(req, function () {
+              asyncLocalStorage.run(store, function () {
+                onFinished(req, function () {
+                  assert.strictEqual(asyncLocalStorage.getStore().foo, 'bar')
+                  done()
+                })
+              })
+            })
+            req.resume()
+            setTimeout(res.end.bind(res), 0)
+          })
+
+          sendGet(server)
+        })
+      })
+    })
+
+    describeAsyncHooks('when async local storage', function () {
+      it('should presist store in callback', function (done) {
+        var asyncLocalStorage = new asyncHooks.AsyncLocalStorage()
+        var store = { foo: 'bar' }
+
+        var server = http.createServer(function (req, res) {
+          asyncLocalStorage.run(store, function () {
+            onFinished(req, function () {
+              assert.strictEqual(asyncLocalStorage.getStore().foo, 'bar')
+              done()
+            })
+          })
+          req.resume()
+          setTimeout(res.end.bind(res), 0)
+        })
+
+        sendGet(server)
+      })
     })
   })
 
@@ -406,7 +497,7 @@ describe('onFinished(req, listener)', function () {
 
         onFinished(req, function (err) {
           assert.ifError(err)
-          assert.equal(data, 'A')
+          assert.strictEqual(data, 'A')
 
           if (called) {
             socket.end()
@@ -418,7 +509,7 @@ describe('onFinished(req, listener)', function () {
           called = req
 
           res.end()
-          writerequest(socket, true)
+          writeRequest(socket, true)
         })
 
         req.setEncoding('utf8')
@@ -433,7 +524,7 @@ describe('onFinished(req, listener)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this, true)
+          writeRequest(this, true)
         })
       })
     })
@@ -444,7 +535,7 @@ describe('onFinished(req, listener)', function () {
       var server = http.createServer(function (req, res) {
         onFinished(req, function (err) {
           assert.ok(err)
-          done()
+          server.close(done)
         })
 
         socket.on('error', noop)
@@ -454,17 +545,17 @@ describe('onFinished(req, listener)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this, true)
+          writeRequest(this, true)
         })
       })
     })
 
-    it('should include the request objecy', function (done) {
+    it('should include the request object', function (done) {
       var server = http.createServer(function (req, res) {
         onFinished(req, function (err, msg) {
           assert.ok(err)
-          assert.equal(msg, req)
-          done()
+          assert.strictEqual(msg, req)
+          server.close(done)
         })
 
         socket.on('error', noop)
@@ -474,8 +565,47 @@ describe('onFinished(req, listener)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this, true)
+          writeRequest(this, true)
         })
+      })
+    })
+  })
+
+  describe('when requests pipelined', function () {
+    it('should handle socket errors', function (done) {
+      var count = 0
+      var server = http.createServer(function (req) {
+        var num = ++count
+
+        onFinished(req, function (err) {
+          assert.ok(err)
+          if (!--wait) server.close(done)
+        })
+
+        if (num === 1) {
+          // second request
+          writeRequest(socket, true)
+          req.pause()
+        } else {
+          // cause framing error in second request
+          socket.write('W')
+          req.resume()
+        }
+      })
+      var socket
+      var wait = 3
+
+      server.listen(function () {
+        socket = net.connect(this.address().port, function () {
+          writeRequest(this)
+        })
+
+        socket.on('close', function () {
+          assert.strictEqual(count, 2)
+          if (!--wait) server.close(done)
+        })
+
+        socket.resume()
       })
     })
   })
@@ -484,7 +614,7 @@ describe('onFinished(req, listener)', function () {
     it('should execute the callback', function (done) {
       var client
       var server = http.createServer(function (req, res) {
-        onFinished(req, done)
+        onFinished(req, close(server, done))
         setTimeout(client.abort.bind(client), 0)
       })
       server.listen(function () {
@@ -505,7 +635,7 @@ describe('onFinished(req, listener)', function () {
         })
 
         onFinished(req, done)
-        assert.equal(stderr, '')
+        assert.strictEqual(stderr, '')
         res.end()
       })
 
@@ -513,7 +643,7 @@ describe('onFinished(req, listener)', function () {
         var port = this.address().port
         http.get('http://127.0.0.1:' + port, function (res) {
           res.resume()
-          res.on('close', server.close.bind(server))
+          res.on('end', server.close.bind(server))
         })
       })
     })
@@ -531,10 +661,10 @@ describe('onFinished(req, listener)', function () {
 
         onFinished(req, function (err) {
           assert.ifError(err)
-          assert.equal(Buffer.concat(data).toString(), 'knock, knock')
+          assert.strictEqual(Buffer.concat(data).toString(), 'knock, knock')
 
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'ping')
+            assert.strictEqual(chunk.toString(), 'ping')
             socket.end('pong')
           })
           socket.write('HTTP/1.1 200 OK\r\n\r\n')
@@ -555,7 +685,7 @@ describe('onFinished(req, listener)', function () {
         client.on('connect', function (res, socket, bodyHead) {
           socket.write('ping')
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'pong')
+            assert.strictEqual(chunk.toString(), 'pong')
             socket.end()
             server.close(done)
           })
@@ -575,13 +705,13 @@ describe('onFinished(req, listener)', function () {
 
         onFinished(req, function (err) {
           assert.ifError(err)
-          assert.equal(Buffer.concat(data).toString(), 'knock, knock')
+          assert.strictEqual(Buffer.concat(data).toString(), 'knock, knock')
           socket.write('HTTP/1.1 200 OK\r\n\r\n')
         })
 
         socket.on('data', function (chunk) {
-          assert.equal(chunk.toString(), 'ping')
-          onFinished(req, function (err) {
+          assert.strictEqual(chunk.toString(), 'ping')
+          onFinished(req, function () {
             socket.end('pong')
           })
         })
@@ -601,7 +731,7 @@ describe('onFinished(req, listener)', function () {
         client.on('connect', function (res, socket, bodyHead) {
           socket.write('ping')
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'pong')
+            assert.strictEqual(chunk.toString(), 'pong')
             socket.end()
             server.close(done)
           })
@@ -623,10 +753,10 @@ describe('onFinished(req, listener)', function () {
 
         onFinished(req, function (err) {
           assert.ifError(err)
-          assert.equal(Buffer.concat(data).toString(), 'knock, knock')
+          assert.strictEqual(Buffer.concat(data).toString(), 'knock, knock')
 
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'ping')
+            assert.strictEqual(chunk.toString(), 'ping')
             socket.end('pong')
           })
           socket.write('HTTP/1.1 101 Switching Protocols\r\n')
@@ -643,8 +773,8 @@ describe('onFinished(req, listener)', function () {
       server.listen(function () {
         client = http.request({
           headers: {
-            'Connection': 'Upgrade',
-            'Upgrade': 'Raw'
+            Connection: 'Upgrade',
+            Upgrade: 'Raw'
           },
           hostname: '127.0.0.1',
           port: this.address().port
@@ -653,7 +783,7 @@ describe('onFinished(req, listener)', function () {
         client.on('upgrade', function (res, socket, bodyHead) {
           socket.write('ping')
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'pong')
+            assert.strictEqual(chunk.toString(), 'pong')
             socket.end()
             server.close(done)
           })
@@ -673,7 +803,7 @@ describe('onFinished(req, listener)', function () {
 
         onFinished(req, function (err) {
           assert.ifError(err)
-          assert.equal(Buffer.concat(data).toString(), 'knock, knock')
+          assert.strictEqual(Buffer.concat(data).toString(), 'knock, knock')
 
           socket.write('HTTP/1.1 101 Switching Protocols\r\n')
           socket.write('Connection: Upgrade\r\n')
@@ -682,8 +812,8 @@ describe('onFinished(req, listener)', function () {
         })
 
         socket.on('data', function (chunk) {
-          assert.equal(chunk.toString(), 'ping')
-          onFinished(req, function (err) {
+          assert.strictEqual(chunk.toString(), 'ping')
+          onFinished(req, function () {
             socket.end('pong')
           })
         })
@@ -696,8 +826,8 @@ describe('onFinished(req, listener)', function () {
       server.listen(function () {
         client = http.request({
           headers: {
-            'Connection': 'Upgrade',
-            'Upgrade': 'Raw'
+            Connection: 'Upgrade',
+            Upgrade: 'Raw'
           },
           hostname: '127.0.0.1',
           port: this.address().port
@@ -706,7 +836,7 @@ describe('onFinished(req, listener)', function () {
         client.on('upgrade', function (res, socket, bodyHead) {
           socket.write('ping')
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'pong')
+            assert.strictEqual(chunk.toString(), 'pong')
             socket.end()
             server.close(done)
           })
@@ -730,7 +860,7 @@ describe('isFinished(req)', function () {
       done()
     })
 
-    sendget(server)
+    sendGet(server)
   })
 
   it('should be true after request finishes', function (done) {
@@ -745,7 +875,7 @@ describe('isFinished(req)', function () {
       res.end()
     })
 
-    sendget(server)
+    sendGet(server)
   })
 
   describe('when request data buffered', function () {
@@ -762,7 +892,7 @@ describe('isFinished(req)', function () {
         }, 10)
       })
 
-      sendget(server)
+      sendGet(server)
     })
   })
 
@@ -772,7 +902,7 @@ describe('isFinished(req)', function () {
         onFinished(req, function (err) {
           assert.ok(err)
           assert.ok(onFinished.isFinished(req))
-          done()
+          server.close(done)
         })
 
         socket.on('error', noop)
@@ -782,7 +912,7 @@ describe('isFinished(req)', function () {
 
       server.listen(function () {
         socket = net.connect(this.address().port, function () {
-          writerequest(this, true)
+          writeRequest(this, true)
         })
       })
     })
@@ -795,7 +925,7 @@ describe('isFinished(req)', function () {
         onFinished(res, function (err) {
           assert.ifError(err)
           assert.ok(onFinished.isFinished(req))
-          done()
+          server.close(done)
         })
         setTimeout(client.abort.bind(client), 0)
       })
@@ -817,11 +947,11 @@ describe('isFinished(req)', function () {
 
       server.on('connect', function (req, socket, bodyHead) {
         assert.ok(onFinished.isFinished(req))
-        assert.equal(bodyHead.length, 0)
+        assert.strictEqual(bodyHead.length, 0)
         req.resume()
 
         socket.on('data', function (chunk) {
-          assert.equal(chunk.toString(), 'ping')
+          assert.strictEqual(chunk.toString(), 'ping')
           socket.end('pong')
         })
         socket.write('HTTP/1.1 200 OK\r\n\r\n')
@@ -838,7 +968,7 @@ describe('isFinished(req)', function () {
         client.on('connect', function (res, socket, bodyHead) {
           socket.write('ping')
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'pong')
+            assert.strictEqual(chunk.toString(), 'pong')
             socket.end()
             server.close(done)
           })
@@ -859,12 +989,12 @@ describe('isFinished(req)', function () {
         onFinished(req, function (err) {
           assert.ifError(err)
           assert.ok(onFinished.isFinished(req))
-          assert.equal(Buffer.concat(data).toString(), 'knock, knock')
+          assert.strictEqual(Buffer.concat(data).toString(), 'knock, knock')
           socket.write('HTTP/1.1 200 OK\r\n\r\n')
         })
 
         socket.on('data', function (chunk) {
-          assert.equal(chunk.toString(), 'ping')
+          assert.strictEqual(chunk.toString(), 'ping')
           socket.end('pong')
         })
 
@@ -883,7 +1013,7 @@ describe('isFinished(req)', function () {
         client.on('connect', function (res, socket, bodyHead) {
           socket.write('ping')
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'pong')
+            assert.strictEqual(chunk.toString(), 'pong')
             socket.end()
             server.close(done)
           })
@@ -903,11 +1033,11 @@ describe('isFinished(req)', function () {
 
       server.on('upgrade', function (req, socket, bodyHead) {
         assert.ok(onFinished.isFinished(req))
-        assert.equal(bodyHead.length, 0)
+        assert.strictEqual(bodyHead.length, 0)
         req.resume()
 
         socket.on('data', function (chunk) {
-          assert.equal(chunk.toString(), 'ping')
+          assert.strictEqual(chunk.toString(), 'ping')
           socket.end('pong')
         })
         socket.write('HTTP/1.1 101 Switching Protocols\r\n')
@@ -919,8 +1049,8 @@ describe('isFinished(req)', function () {
       server.listen(function () {
         client = http.request({
           headers: {
-            'Connection': 'Upgrade',
-            'Upgrade': 'Raw'
+            Connection: 'Upgrade',
+            Upgrade: 'Raw'
           },
           hostname: '127.0.0.1',
           port: this.address().port
@@ -929,7 +1059,7 @@ describe('isFinished(req)', function () {
         client.on('upgrade', function (res, socket, bodyHead) {
           socket.write('ping')
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'pong')
+            assert.strictEqual(chunk.toString(), 'pong')
             socket.end()
             server.close(done)
           })
@@ -950,7 +1080,7 @@ describe('isFinished(req)', function () {
         onFinished(req, function (err) {
           assert.ifError(err)
           assert.ok(onFinished.isFinished(req))
-          assert.equal(Buffer.concat(data).toString(), 'knock, knock')
+          assert.strictEqual(Buffer.concat(data).toString(), 'knock, knock')
 
           socket.write('HTTP/1.1 101 Switching Protocols\r\n')
           socket.write('Connection: Upgrade\r\n')
@@ -959,7 +1089,7 @@ describe('isFinished(req)', function () {
         })
 
         socket.on('data', function (chunk) {
-          assert.equal(chunk.toString(), 'ping')
+          assert.strictEqual(chunk.toString(), 'ping')
           socket.end('pong')
         })
 
@@ -971,8 +1101,8 @@ describe('isFinished(req)', function () {
       server.listen(function () {
         client = http.request({
           headers: {
-            'Connection': 'Upgrade',
-            'Upgrade': 'Raw'
+            Connection: 'Upgrade',
+            Upgrade: 'Raw'
           },
           hostname: '127.0.0.1',
           port: this.address().port
@@ -981,7 +1111,7 @@ describe('isFinished(req)', function () {
         client.on('upgrade', function (res, socket, bodyHead) {
           socket.write('ping')
           socket.on('data', function (chunk) {
-            assert.equal(chunk.toString(), 'pong')
+            assert.strictEqual(chunk.toString(), 'pong')
             socket.end()
             server.close(done)
           })
@@ -992,12 +1122,12 @@ describe('isFinished(req)', function () {
   })
 })
 
-function captureStderr(fn) {
+function captureStderr (fn) {
   var chunks = []
   var write = process.stderr.write
 
-  process.stderr.write = function write(chunk, encoding) {
-    chunks.push(new Buffer(chunk, encoding))
+  process.stderr.write = function write (chunk, encoding) {
+    chunks.push(new Buffer(chunk, encoding)) // eslint-disable-line node/no-deprecated-api
   }
 
   try {
@@ -1009,19 +1139,35 @@ function captureStderr(fn) {
   return Buffer.concat(chunks).toString('utf8')
 }
 
-function noop() {}
+function close (server, callback) {
+  return function (error) {
+    server.close(function (err) {
+      callback(error || err)
+    })
+  }
+}
 
-function sendget(server) {
-  server.listen(function onListening() {
+function noop () {}
+
+function sendGet (server) {
+  server.listen(function onListening () {
     var port = this.address().port
-    http.get('http://127.0.0.1:' + port, function onResponse(res) {
+    http.get('http://127.0.0.1:' + port, function onResponse (res) {
       res.resume()
-      res.on('close', server.close.bind(server))
+      res.on('end', server.close.bind(server))
     })
   })
 }
 
-function writerequest(socket, chunked) {
+function tryRequire (name) {
+  try {
+    return require(name)
+  } catch (e) {
+    return {}
+  }
+}
+
+function writeRequest (socket, chunked) {
   socket.write('GET / HTTP/1.1\r\n')
   socket.write('Host: localhost\r\n')
   socket.write('Connection: keep-alive\r\n')

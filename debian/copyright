@@ -2,6 +2,7 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: on-finished
 Upstream-Contact: https://github.com/jshttp/on-finished/issues
 Source: https://github.com/jshttp/on-finished
+ https://github.com/jonathanong/ee-first/tags
 
 Files: *
 Copyright: 2013 Jonathan Ong <me@jongleberry.com>
@@ -9,15 +10,14 @@ Copyright: 2013 Jonathan Ong <me@jongleberry.com>
  2017  Greg Walden <talk@gsw.nyc>
 License: Expat
 
-Files: module-ee-first/*
-Copyright: 2014 Jonathan Ong <me@jongleberry.com>
- 2014 Douglas Christopher Wilson <doug@somethingdoug.com>
-License: Expat
-Comment: from module ee-first
-
 Files: debian/*
 Copyright: 2014 Leo Iannacone <l3on@ubuntu.com>
  2018, Bastien Roucariès <rouca@debian.org>
+License: Expat
+
+Files: ee-first/*
+Copyright: 2014 Jonathan Ong <me@jongleberry.com>
+ 2014 Douglas Christopher Wilson <doug@somethingdoug.com>
 License: Expat
 
 License: Expat
@@ -40,4 +40,3 @@ License: Expat
  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
-

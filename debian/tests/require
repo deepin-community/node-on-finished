@@ -1,5 +1,0 @@
-#!/bin/sh
-set -e
-node -e "require('on-finished');"
-node -e "require('ee-first');"
-

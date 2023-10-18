@@ -7,24 +7,6 @@
 %:
 	dh $@
 
-override_dh_auto_clean:
-	rm -rf node_modules
-
-node_modules/ee-first:
-	mkdir -p node_modules
-	ln -sf ../module-ee-first $@
-
-override_dh_auto_test: node_modules/ee-first
-ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS) $(DEB_BUILD_PROFILES)))
-	cd module-ee-first && mocha --exit -R spec
-	mocha --exit -R spec
-else
-	@echo '**********************************************************'
-	@echo 'Skip test suite                                           '
-	@echo '**********************************************************'
-endif
-
-
 define newline =
 
 
@@ -46,7 +28,7 @@ override_dh_installdocs:
 	done
 ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS) $(DEB_BUILD_PROFILES)))
 	dh_installdocs
-	install module-ee-first/README.md debian/node-on-finished/usr/share/doc/node-ee-first
+	install ee-first/README.md debian/node-on-finished/usr/share/doc/node-ee-first
 endif
 
 override_dh_installchangelogs:
